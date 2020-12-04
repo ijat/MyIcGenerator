@@ -9,7 +9,9 @@ namespace MyIcGen
     {
         static void Main(string[] args)
         {
-            bool isDash = true;
+            Console.WriteLine("Starting...");
+            bool isDash = !(args.Length > 0 && args[0] == "--no-dash");
+
             string[] pbArray = new[] {
                 "01",
                 "02",
@@ -144,6 +146,7 @@ namespace MyIcGen
             }
 
             long fulltotal = (long)fullbdpb.Count * (long)ending.Count;
+            Console.WriteLine($"Total lines = {fulltotal}");
             long fullcount = 0;
             int fileCount = 1;
             List<string> full = new List<string>();
@@ -153,7 +156,7 @@ namespace MyIcGen
                 {
                     full.Add(tbdpb + tend);
 
-                    if (full.Count >= 50000000)
+                    if (full.Count >= 100000000)
                     {
                         WriteToFile(ref fileCount, full, fulltotal, ref fullcount);
                     }
@@ -161,10 +164,7 @@ namespace MyIcGen
             }
             
             WriteToFile(ref fileCount, full, fulltotal, ref fullcount);
-            fullcount += full.Count;
-            Decimal percent = (Convert.ToDecimal(fullcount) / Convert.ToDecimal(fulltotal)) * 100;
-            Console.WriteLine($"Percent {percent.ToString("00.##")}%");
-
+            
             Console.WriteLine($"Done. Total generated {fullcount}.");
         }
 
@@ -197,23 +197,20 @@ namespace MyIcGen
 
             fullcount += full.Count;
             full.Clear();
-            Decimal tpercent = (Convert.ToDecimal(fullcount) / Convert.ToDecimal(fulltotal)) * 100;
-            Console.WriteLine($"Percent {tpercent.ToString("00.0000#")}%");
+            Decimal percent = (Convert.ToDecimal(fullcount) / Convert.ToDecimal(fulltotal)) * 100;
+            Console.WriteLine($"Progress {percent.ToString("00.##")}% | Current lines {fullcount} | Total lines {fulltotal} | Available {fulltotal - fullcount}");
         }
 
         // tahun
         static List<string> GenerateBetweenNumber(int min, int max, string format)
         {
-            //int count = 0;
             List<string> generatedNumbers = new List<string>();
             
             for (int i = min; i <= max; i++)
             {
                 generatedNumbers.Add(i.ToString(format));
-                //++count;
             }
-            //generatedNumbers.ForEach(Console.WriteLine);
-            //Console.WriteLine($"Total count: {count}");
+            
             return generatedNumbers;
         }
     }
