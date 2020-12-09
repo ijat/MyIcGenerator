@@ -1,16 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 
 namespace MyIcGen
 {
     class Program
     {
+        static bool isDash = true;
+        static bool isSplitAndCompressed = true;
+        private static int numOfLines = 50000000;
+        static string outname = "ic-gen.txt";
+        
         static void Main(string[] args)
         {
-            Console.WriteLine("Starting...");
-            bool isDash = !(args.Length > 0 && args[0] == "--no-dash");
+            
+            Console.WriteLine("[MyIcGen]");
+            isDash = !(args.Length > 0 && args.Contains("--no-hyphen"));
+            isSplitAndCompressed = !(args.Length > 0 && args.Contains("--no-split"));
+            if (args.Length > 0 && !String.IsNullOrEmpty(args.Last()))
+                outname = args.Last();
+
+            Console.WriteLine($"With hyphen \"-\": {isDash}");
+            Console.WriteLine($"With file split: {isSplitAndCompressed}");
+            Console.WriteLine($"Process every # of lines: {numOfLines}");
+            Console.WriteLine($"Output file: {outname}");
 
             string[] pbArray = new[] {
                 "01",
@@ -105,6 +121,11 @@ namespace MyIcGen
             Array.Sort(pbArray);
             
             // first part YYMMDD
+            // DEFAULTS
+            // List<string> tahun = GenerateBetweenNumber(0, 99, "0#");
+            // List<string> bulan = GenerateBetweenNumber(1, 12, "0#");
+            // List<string> hari = GenerateBetweenNumber(1, 31, "0#");
+            // List<string> ending = GenerateBetweenNumber(0, 9999, "000#");
             List<string> tahun = GenerateBetweenNumber(0, 99, "0#");
             List<string> bulan = GenerateBetweenNumber(1, 12, "0#");
             List<string> hari = GenerateBetweenNumber(1, 31, "0#");
@@ -147,52 +168,69 @@ namespace MyIcGen
 
             long fulltotal = (long)fullbdpb.Count * (long)ending.Count;
             Console.WriteLine($"Total lines = {fulltotal}");
+            Console.WriteLine($"Processing...");
             long fullcount = 0;
             int fileCount = 1;
             List<string> full = new List<string>();
+            
+            Stopwatch timeTaken = new Stopwatch();
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             foreach (var tbdpb in fullbdpb)
             {
                 foreach (var tend in ending)
                 {
                     full.Add(tbdpb + tend);
 
-                    if (full.Count >= 100000000)
+                    if (full.Count >= numOfLines)
                     {
                         WriteToFile(ref fileCount, full, fulltotal, ref fullcount);
+                        stopwatch.Stop();
+                        Console.WriteLine($"Complete write to output file in {stopwatch.Elapsed.TotalSeconds} s");
+                        stopwatch.Restart();
                     }
                 }
             }
             
-            WriteToFile(ref fileCount, full, fulltotal, ref fullcount);
+            if ((fulltotal - fullcount) > 0)  
+                WriteToFile(ref fileCount, full, fulltotal, ref fullcount);
             
-            Console.WriteLine($"Done. Total generated {fullcount}.");
+            Console.WriteLine($"Done. Total generated {fullcount} in {timeTaken.Elapsed.TotalSeconds} s.");
         }
 
         private static void WriteToFile(ref int fileCount, List<string> full, long fulltotal, ref long fullcount)
         {
-            using (var memoryStream = new MemoryStream())
+            if (isSplitAndCompressed)
             {
-                using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                using (var memoryStream = new MemoryStream())
                 {
-                    var demoFile = archive.CreateEntry($"ic-generated-{fileCount}.txt", CompressionLevel.Optimal);
-
-                    using (var entryStream = demoFile.Open())
-                    using (var streamWriter = new StreamWriter(entryStream))
+                    using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
                     {
-                        foreach (var ic in full)
+                        var demoFile = archive.CreateEntry($"{fileCount}-{outname}", CompressionLevel.Optimal);
+
+                        using (var entryStream = demoFile.Open())
+                        using (var streamWriter = new StreamWriter(entryStream))
                         {
-                            streamWriter.WriteLine(ic);
+                            foreach (var ic in full)
+                            {
+                                streamWriter.WriteLine(ic);
+                            }
+
+                            streamWriter.Flush();
                         }
-                        streamWriter.Flush();
+                    }
+
+                    using (var fileStream = new FileStream($"{fileCount}-{outname}.zip", FileMode.Create))
+                    {
+                        memoryStream.Seek(0, SeekOrigin.Begin);
+                        memoryStream.CopyTo(fileStream);
+                        ++fileCount;
                     }
                 }
-
-                using (var fileStream = new FileStream($"ic-generated-{fileCount}.zip", FileMode.Create))
-                {
-                    memoryStream.Seek(0, SeekOrigin.Begin);
-                    memoryStream.CopyTo(fileStream);
-                    ++fileCount;
-                }
+            }
+            else
+            {
+                File.AppendAllLines($"{outname}", full);
             }
 
             fullcount += full.Count;
@@ -213,5 +251,7 @@ namespace MyIcGen
             
             return generatedNumbers;
         }
+        
+        
     }
 }
